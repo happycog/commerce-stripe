@@ -1,5 +1,25 @@
 # Release Notes for Stripe for Craft Commerce
 
+## 2.3.1.1 - 2020-06-17
+
+### Fixed
+- Fixed minor typo.
+
+## 2.3.1 - 2020-06-17
+
+### Added
+- Added `craft\commerce\stripe\gateways\Gateway::getTransactionHashFromWebhook()` to support mutex lock when processing a webhook.
+
+## 2.3.0 - 2020-04-14
+
+### Changed
+- Updated `stripe-php` dependency. ([#95](https://github.com/craftcms/commerce-stripe/issues/95))
+- JavaScript SDK is now loaded at the end of the body.
+- Gateway `handleWebhook()` methods are now public.
+
+### Fixed
+- Fixed a bug that could cause viewport zooming on mobile devices. ([#94](https://github.com/craftcms/commerce-stripe/issues/94))
+
 ## 2.2.3 - 2019-12-12
 
 ### Fixed

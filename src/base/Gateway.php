@@ -19,14 +19,15 @@ use craft\commerce\stripe\errors\CustomerException;
 use craft\commerce\stripe\events\BuildGatewayRequestEvent;
 use craft\commerce\stripe\events\ReceiveWebhookEvent;
 use craft\commerce\stripe\Plugin as StripePlugin;
+use craft\helpers\ArrayHelper;
 use craft\helpers\Json;
 use craft\helpers\StringHelper;
 use craft\web\Response;
 use craft\web\Response as WebResponse;
 use Stripe\ApiResource;
 use Stripe\Customer;
-use Stripe\Error\Base;
-use Stripe\Error\Card as CardError;
+use Stripe\Exception\CardException;
+use Stripe\Exception\ExceptionInterface;
 use Stripe\Source;
 use Stripe\Stripe;
 use Stripe\Webhook;
@@ -40,9 +41,6 @@ use yii\base\NotSupportedException;
  */
 abstract class Gateway extends BaseGateway
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event BuildGatewayRequestEvent The event that is triggered when a gateway request is being built.
      *
@@ -95,9 +93,6 @@ abstract class Gateway extends BaseGateway
      */
     const STRIPE_API_VERSION = '2019-03-14';
 
-    // Properties
-    // =========================================================================
-
     /**
      * @var string
      */
@@ -117,10 +112,6 @@ abstract class Gateway extends BaseGateway
      * @var string
      */
     public $signingSecret;
-
-
-    // Public Methods
-    // =========================================================================
 
     public function init()
     {
@@ -298,6 +289,30 @@ abstract class Gateway extends BaseGateway
     }
 
     /**
+     * @return string
+     * @since 2.3.1
+     */
+    public function getTransactionHashFromWebhook()
+    {
+        $rawData = Craft::$app->getRequest()->getRawBody();
+        if (!$rawData) {
+            return null;
+        }
+
+        $data = Json::decodeIfJson($rawData);
+        if (!$data) {
+            return null;
+        }
+
+        $transactionHash = ArrayHelper::getValue($data, 'data.object.metadata.transaction_reference');
+        if (!$transactionHash || !is_string($transactionHash)) {
+            return null;
+        }
+
+        return $transactionHash;
+    }
+
+    /**
      * Returns response model wrapping the passed data.
      *
      * @param mixed $data
@@ -305,9 +320,6 @@ abstract class Gateway extends BaseGateway
      * @return RequestResponseInterface
      */
     abstract public function getResponseModel($data): RequestResponseInterface;
-
-    // Protected methods
-    // =========================================================================
 
     /**
      * Build the request data array.
@@ -387,13 +399,13 @@ abstract class Gateway extends BaseGateway
      */
     protected function createPaymentResponseFromError(\Exception $exception): RequestResponseInterface
     {
-        if ($exception instanceof CardError) {
+        if ($exception instanceof CardException) {
             $body = $exception->getJsonBody();
             $data = $body;
             $data['code'] = $body['error']['code'];
             $data['message'] = $body['error']['message'];
             $data['id'] = $body['error']['charge'];
-        } else if ($exception instanceof Base) {
+        } else if ($exception instanceof ExceptionInterface) {
             // So it's not a card being declined but something else. ¯\_(ツ)_/¯
             $body = $exception->getJsonBody();
             $data = $body;
